@@ -1,0 +1,101 @@
+Reproducible Research - Project 1
+  Read and Pre-Process data
+```{r read and preprocess data}
+rawactivity <- read.csv("activity.csv")					## Read raw data					
+activity <- rawactivity[!is.na(rawactivity$steps),]			## remove NA					
+activity$date <- as.Date(activity$date,format="%m/%d/%Y")		## Date field
+```
+  Calculate Daily Means
+```{r calculate mean }
+dailysums <- aggregate(activity[,1], list(activity$date), sum)		## group for daily sums
+colnames(dailysums) <- c("date","dailysteps")
+countdays <- nrow(dailysums)
+mean <- sum(dailysums$dailysteps) / nrow(dailysums)
+```
+The mean number of steps over `r countdays` days is is `r mean` steps per day.  
+
+  Total Steps per day  
+```{r total steps per day}
+hist(dailysums$dailysteps, main = "Total Daily Steps", xlab="steps",ylab="number of days")		## histogram of daily totals
+plot(dailysums$date, dailysums$dailysteps, main = "Total Daily Steps", xlab = "date", ylab = "daily total steps")
+```
+  Mean Steps per day  
+```{r mean steps per day}
+dailymeans <- aggregate(24*12*activity[,1], list(activity$date), mean)	## 24*12 = number of 5 min time periods/day
+colnames(dailymeans) <- c("date","meansteps")
+hist(dailymeans$meansteps, main = "Mean Steps per Day",xlab="Mean Steps")	## histogram of daily means
+plot(dailymeans$date, dailymeans$meansteps, main = "Mean Daily Steps", xlab = "date", ylab = "daily mean steps")
+```
+  Median Steps per day  
+```{r median steps per day}
+dailymedians <- aggregate(24*12*activity[,1],list(activity$date), median)	## group for daily medians
+colnames(dailymedians) <- c("date","mediansteps")
+plot(dailymedians$date, dailymedians$mediansteps, main = "Median Daily Steps", xlab = "date", ylab = "daily mean steps")
+```
+  Plot activity by 5-min time interval  
+```{r interval plot}
+intervalmeans <- aggregate(activity[,1], list(activity$interval), mean)	## interval means
+colnames(intervalmeans) <- c("interval", "meansteps")
+hist(intervalmeans$meansteps, main = "Mean Steps per 5-Min Interval", xlab = "Mean Steps")
+plot(intervalmeans$interval, intervalmeans$meansteps, main = "Mean Steps per 5-min interval", xlab = "interval", ylab = "mean steps")
+```
+  Fill in NA data sets  
+```{r pre-process data to fill in NA with means}
+cleanactivity <- rawactivity
+cleanactivity$date <- as.Date(cleanactivity$date,format="%m/%d/%Y")			## Date field
+NAcount <- sum(is.na(cleanactivity$steps))						## count NA values in cleanactivity 2,304
+Totalcount <- totalrowcount <- nrow(cleanactivity)
+tc <- merge(x = cleanactivity, y = intervalmeans, by = "interval", all = TRUE)		## merge dataframes
+tc$steps <- as.numeric(tc$steps)							## convert steps from int to num
+for (i in 1:totalrowcount) 
+{
+	if (is.na(tc[i,2])) { tc[i,2] <- tc[i,4]}					## replace NA with mean for that interval
+}
+```
+  A total of `r NAcount` NA values are replaced with the mean value of the corresponting interval mean.  
+  There is a total of `r Totalcount` records in the data set covering each 5-minute time interval over `r countdays` days.  
+  Total, Mean, Median for cleanedup data set  
+```{r statistics on new data set}
+dailysums <- aggregate (steps ~ date, data = tc, sum)			## group for daily sums
+mean <- sum(dailysums$steps) / nrow(dailysums)				## calculate overall mean
+```
+  The mean is `r mean` steps.  									## 10766.19
+```{r histogram total and mean steps}
+dailymeans <- aggregate(24*12*activity[,1], list(activity$date), mean)	## 24*12 = number of 5 min time periods/day
+par(mfrow=c(1,2))
+hist(dailysums$steps, main = "Total Steps", xlab="interval")			## histogram of daily totals
+hist(dailymeans$x, main = "Mean Steps",xlab="interval")				## histogram of daily means
+```
+```{r median analysis}
+dailymedians <- aggregate(24*12*cleanactivity[,1], list(cleanactivity$date), median)	## group for daily medians
+maxmedian <- max(dailymedians$x)							## daily median is 0
+```
+  The maximum median is `r maxmedian` steps.  
+```{r plot total steps}									## plots
+par(mfrow=c(1,2))									
+plot(tc$steps ~ tc$date, main = "Total Steps \n replaced NA \n with interval mean")		## graph total steps by day
+plot(tc$steps ~ tc$interval, main = "Total Steps \n replaced NA \n with interval mean")
+```
+  Weekday / Weekend Analysis  
+```{r weekday/weekend analysis}
+tc$day <- weekdays(tc$date)						## add day column
+tc$day <- as.factor(tc$day)						## change type to factor
+weekend <- tc[tc$day %in% c("Saturday","Sunday"),]
+weekday <- tc[tc$day %in% c("Monday","Tuesday", "Wednesday","Thursday","Friday"),]
+weekend$type <- c("1")
+weekday$type <- c("2")
+z <- rbind(weekday, weekend)
+z$type <- as.factor(z$type)
+```
+``` {r plot weekday/weekend results}
+par(mfrow=c(1,2))
+plot(z$date, z$meansteps, col = z$type, main = "Mean Steps by Date")
+plot(z$date, z$steps, col = z$type, main = "Total Steps by Date")
+
+par(mfrow=c(1,2))
+plot(z$interval, z$meansteps, col = z$type, main = "Mean Steps by Time Interval")
+plot(z$interval, z$steps, col = z$type, main = "Total Steps by Time Interval")
+
+par(mfrow=c(1,1))
+plot(z$interval, z$meansteps, type = "l", xlab= "Time Interval 00:00 - 23:55", ylab = "Mean Steps per 5-min Interval", main = "Mean Steps by Time of Day")
+```
